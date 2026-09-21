@@ -1,8 +1,5 @@
 services:
   watermeter:
-    build:
-      context: .
-      dockerfile: Dockerfile
     image: watermeter:latest
     container_name: watermeter.myapps.localhost
     hostname: watermeter.myapps.localhost
@@ -24,3 +21,10 @@ services:
       GOOGLE_SHEET_TAB: "${GOOGLE_SHEET_TAB:-Readings}"
       GOOGLE_SERVICE_ACCOUNT_FILE: "${GOOGLE_SERVICE_ACCOUNT_FILE:-/app/credentials/google-service-account.json}"
       ROUTE_PATH: "wm"
+    networks:
+      - net
+
+networks:
+  net:
+    driver: bridge
+    external: true
