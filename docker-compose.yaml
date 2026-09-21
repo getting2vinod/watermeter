@@ -23,3 +23,4 @@ services:
       GOOGLE_SHEET_ID: "${GOOGLE_SHEET_ID:-}"
       GOOGLE_SHEET_TAB: "${GOOGLE_SHEET_TAB:-Readings}"
       GOOGLE_SERVICE_ACCOUNT_FILE: "${GOOGLE_SERVICE_ACCOUNT_FILE:-/app/credentials/google-service-account.json}"
+      ROUTE_PATH: "wm"
