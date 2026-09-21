@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Meter Readings History</h3>
+    <form action="{{ROUTE_PATH}}/sync" method="post" class="d-inline">
+        <button type="submit" class="btn btn-outline-primary btn-sm">
+            🔄 Full Sync to Google Sheets
+        </button>
+    </form>
+</div>
+
+<div class="table-responsive bg-white shadow-sm rounded">
+    <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+            <tr>
+                <th>Date</th><th>Meter</th><th>Tenant</th><th>Area</th><th>Reading</th><th>Prev. Reading</th><th>Consumption</th><th>Days</th><th>Avg/Day</th><th>Photo</th><th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in records %}
+            <tr>
+                <td>{{ r.current_date }}</td>
+                <td><strong>{{ r.meter_number }}</strong></td>
+                <td>{{ r.tenant_code }}</td>
+                <td>{{ r.area }}</td>
+                <td>{{ r.current_reading }} KL</td>
+                <td>{{ r.previous_reading if r.previous_reading is not none else '-' }}</td>
+                <td>{{ r.consumption if r.consumption is not none else '-' }} KL</td>
+                <td>{{ r.days if r.days is not none else '-' }}</td>
+                <td>{{ r.avg_per_day if r.avg_per_day is not none else '-' }}</td>
+                <td>
+                    {% if r.image_path %}
+                    <a href="{{ROUTE_PATH}}/static/uploads/{{ r.image_path.split('uploads/')[1] }}" target="_blank" class="btn btn-sm btn-outline-secondary">View</a>
+                    {% else %}
+                    <span class="text-muted small">None</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <form action="{{ROUTE_PATH}}/readings/{{ r.id }}/delete" method="post" onsubmit="return confirm('Are you sure you want to delete reading #{{ r.id }}?');" class="d-inline">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Delete</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

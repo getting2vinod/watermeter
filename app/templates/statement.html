@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="no-print mb-4">
+    <form method="get" class="row g-3 align-items-center">
+        <div class="col-auto">
+            <select name="tenant_id" class="form-select" onchange="this.form.submit()">
+                <option value="">-- Select Tenant --</option>
+                {% for t in tenants %}
+                <option value="{{ t.id }}" {% if selected_tenant_id == t.id %}selected{% endif %}>{{ t.code }} - {{ t.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if data %}
+        <div class="col-auto">
+            <button type="button" class="btn btn-secondary" onclick="window.print()">Print Statement</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+{% if data %}
+<div class="card p-4 mx-auto" style="max-width: 800px; border: 1px solid #ccc;">
+    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-3">
+        <div>
+            <h2>Water Consumption Statement</h2>
+            <p class="mb-0 text-muted">Tenant: <strong>{{ data.tenant.name }} ({{ data.tenant.code }})</strong></p>
+        </div>
+        <div class="text-end">
+            <p class="mb-0">Date: <strong>{{ data.generated_date }}</strong></p>
+        </div>
+    </div>
+
+    <table class="table table-bordered text-center align-middle mb-4">
+        <thead class="table-light">
+            <tr>
+                <th>Meter</th>
+                <th>Area</th>
+                <th>Previous Reading</th>
+                <th>Previous Date</th>
+                <th>Current Reading</th>
+                <th>Current Date</th>
+                <th>Consumption</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for m in data.meter_stats %}
+            <tr>
+                <td><strong>{{ m.meter_number }}</strong></td>
+                <td>{{ m.area }}</td>
+                <td>{{ m.previous_reading if m.previous_reading is not none else '-' }}</td>
+                <td>{{ m.previous_date if m.previous_date else '-' }}</td>
+                <td>{{ m.current_reading if m.current_reading is not none else '-' }}</td>
+                <td>{{ m.current_date if m.current_date else '-' }}</td>
+                <td><strong>{{ m.consumption if m.consumption is not none else '-' }} KL</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="p-3 bg-light rounded text-end">
+        <h4>Total Water Consumed: <span class="text-primary">{{ data.total_consumption }} KL</span></h4>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

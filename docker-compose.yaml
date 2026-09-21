@@ -1,0 +1,25 @@
+services:
+  watermeter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: watermeter:latest
+    container_name: watermeter.myapps.localhost
+    hostname: watermeter.myapps.localhost
+    restart: always
+    ports:
+      - "4006:4006"
+    volumes:
+      - ./data:/app/data
+      - ./app/templates:/app/app/templates
+      - ./app/services:/app/app/services
+      - ./app/main.py:/app/app/main.py
+      - ./app/models.py:/app/app/models.py
+      - ./app/database.py:/app/app/database.py
+      # Optional credentials mount:
+      # - ./credentials/google-service-account.json:/app/credentials/google-service-account.json:ro
+    environment:
+      GOOGLE_SHEETS_ENABLED: "${GOOGLE_SHEETS_ENABLED:-false}"
+      GOOGLE_SHEET_ID: "${GOOGLE_SHEET_ID:-}"
+      GOOGLE_SHEET_TAB: "${GOOGLE_SHEET_TAB:-Readings}"
+      GOOGLE_SERVICE_ACCOUNT_FILE: "${GOOGLE_SERVICE_ACCOUNT_FILE:-/app/credentials/google-service-account.json}"
