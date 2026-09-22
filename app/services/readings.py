@@ -6,7 +6,7 @@ from app.models import MeterReading, Meter, Tenant
 
 
 def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[str, Any]:
-    # 1. If the reading itself is marked as a reset, it serves as the new baseline (0 consumption)
+    # 1. If the current reading is marked as a reset, consumption for this entry is 0.0 (starts baseline)
     if reading.is_reset:
         return {
             "id": reading.id,
@@ -25,7 +25,7 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
             "review": getattr(reading, "review", None)
         }
 
-    # 2. Find the most recent explicit reset marker before this reading
+    # 2. Look for the most recent reading marked with is_reset = True prior to this reading
     reset_reading = (
         db.query(MeterReading)
         .filter(
@@ -37,32 +37,20 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
         .first()
     )
 
-    # 3. If no explicit reset marker exists, fall back to the earliest baseline reading for this meter
-    if not reset_reading:
-        reset_reading = (
-            db.query(MeterReading)
-            .filter(
-                MeterReading.meter_id == reading.meter_id,
-                MeterReading.capture_date < reading.capture_date
-            )
-            .order_by(MeterReading.capture_date.asc())
-            .first()
-        )
-
-    # 4. If still no reset/baseline reading is found (i.e. this is the only captured entry), set consumption to 0.0
-    if not reset_reading:
-        consumption = 0.0
-        days = None
-        avg_per_day = None
-        prev_date = None
-        prev_val = None
-    else:
-        # Calculate consumption strictly from the reset baseline
+    if reset_reading:
+        # If an is_reset flag is found: consumption = current_reading - reset_reading
         consumption = round(max(0.0, reading.reading_value - reset_reading.reading_value), 2)
         days = (reading.capture_date - reset_reading.capture_date).days
         avg_per_day = round(consumption / days, 3) if days and days > 0 else 0.0
         prev_date = reset_reading.capture_date
         prev_val = reset_reading.reading_value
+    else:
+        # If NO is_reset flag exists for the meter: consumption = current reading value
+        consumption = round(reading.reading_value, 2)
+        days = None
+        avg_per_day = None
+        prev_date = None
+        prev_val = None
 
     return {
         "id": reading.id,
