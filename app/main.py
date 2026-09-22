@@ -62,8 +62,8 @@ def seed_initial_data():
         meters_data = [
             ("A1", "A11", "Wash"), ("A1", "A12", "Kitchen"),
             ("B1", "B11", "Wash"), ("B1", "B12", "Kitchen"),
-            ("A2", "A21", "Wash"), ("A2", "A22", "Kitchen"),
-            ("B2", "B21", "Wash"), ("B2", "B22", "Kitchen"),
+            ("A2", "A21", "Kitchen"), ("A2", "A22", "Wash"),
+            ("B2", "B21", "Kitchen"), ("B2", "B22", "Wash"),
             ("A3", "A31", "Wash"), ("A3", "A32", "Kitchen"),
             ("B3", "B31", "Wash"), ("B3", "B32", "Kitchen")
         ]
