@@ -38,6 +38,8 @@ ROUTE_PATH = os.getenv("ROUTE_PATH", "")
 if ROUTE_PATH != "":
     ROUTE_PATH = "/" + ROUTE_PATH
 
+print("Route : " + ROUTE_PATH)
+
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
 
@@ -94,6 +96,7 @@ def capture_form(request: Request, db: Session = Depends(get_db)):
 
 @app.post("/capture")
 async def save_reading(
+    request: Request,
     background_tasks: BackgroundTasks,
     meter_id: int = Form(...),
     capture_date: str = Form(...),
@@ -104,11 +107,45 @@ async def save_reading(
     meter = db.query(Meter).filter(Meter.id == meter_id).first()
     date_obj = datetime.strptime(capture_date, "%Y-%m-%d").date()
 
+    # Check for existing reading on the same meter and date
+    existing_reading = (
+        db.query(MeterReading)
+        .filter(
+            MeterReading.meter_id == meter_id,
+            MeterReading.capture_date == date_obj
+        )
+        .first()
+    )
+
+    if existing_reading:
+        meters = db.query(Meter).all()
+        error_msg = (
+            f"A reading for meter '{meter.meter_number}' on {capture_date} "
+            f"already exists with a value of {existing_reading.reading_value} KL."
+        )
+        return templates.TemplateResponse(
+            request=request,
+            name="capture.html",
+            context={
+                "meters": meters,
+                "today": datetime.now().strftime("%Y-%m-%d"),
+                "error_message": error_msg,
+                "selected_meter_id": meter_id,
+                "capture_date": capture_date,
+                "reading_value": reading_value,
+                "ROUTE_PATH":ROUTE_PATH
+            },
+            status_code=400,
+        )
+
+    # Save file under data/uploads/water/<meter_number>/
     file_path = None
     if image and image.filename:
         meter_folder = UPLOAD_DIR / "water" / meter.meter_number
         meter_folder.mkdir(parents=True, exist_ok=True)
-        filename = f"{capture_date}_{image.filename}"
+        
+        ext = Path(image.filename).suffix.lower()
+        filename = f"{meter.meter_number}-{capture_date}{ext}"
         saved_file = meter_folder / filename
 
         with open(saved_file, "wb") as buffer:
@@ -125,7 +162,7 @@ async def save_reading(
     db.commit()
     db.refresh(reading)
 
-    background_tasks.add_task(run_full_sync_task)
+    #background_tasks.add_task(run_full_sync_task)
     return RedirectResponse(url=ROUTE_PATH+"/readings", status_code=303)
 
 
