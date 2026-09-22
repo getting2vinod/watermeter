@@ -27,16 +27,13 @@
         <div>
             <h3 class="mb-1">{{ data.tenant.name }} ({{ data.tenant.code }})</h3>
             <div class="text-muted fs-6">
-                <strong>Baseline Reading:</strong> {{ data.total_baseline }} KL
+                Baseline Reading: <strong>{{ data.total_baseline }} KL</strong>
             </div>
         </div>
         <div class="text-end">
             <span class="badge bg-primary fs-6">
                 Total Consumption: {{ data.total_consumption }} KL
             </span>
-            <div class="text-muted small mt-1">
-                Current ({{ data.total_current }} KL) - Baseline ({{ data.total_baseline }} KL)
-            </div>
         </div>
     </div>
     <div class="card-body p-0">
@@ -59,11 +56,11 @@
                         <td><strong>{{ stat.meter_number }}</strong></td>
                         <td>{{ stat.area }}</td>
                         <td>{{ stat.previous_date or '-' }}</td>
-                        <td>{{ stat.previous_reading if stat.previous_reading is not none else '0.0' }} KL</td>
+                        <td>{{ stat.previous_reading if stat.previous_reading is not none else '-' }} {% if stat.previous_reading is not none %}KL{% endif %}</td>
                         <td>{{ stat.current_date or '-' }}</td>
-                        <td>{{ stat.current_reading if stat.current_reading is not none else '-' }} KL</td>
+                        <td>{{ stat.current_reading if stat.current_reading is not none else '-' }} {% if stat.current_reading is not none %}KL{% endif %}</td>
                         <td>
-                            <strong>{{ stat.consumption }} KL</strong>
+                            <strong>{{ stat.consumption if stat.consumption is not none else '-' }} KL</strong>
                         </td>
                     </tr>
                     {% endfor %}
