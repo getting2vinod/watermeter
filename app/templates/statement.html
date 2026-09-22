@@ -39,7 +39,7 @@
                 <th>Previous Date</th>
                 <th>Current Reading</th>
                 <th>Current Date</th>
-                <th>Consumption</th>
+                <th>Current Consumption</th>
             </tr>
         </thead>
         <tbody>
@@ -58,7 +58,8 @@
     </table>
 
     <div class="p-3 bg-light rounded text-end">
-        <h4>Total Water Consumed: <span class="text-primary">{{ data.total_consumption }} KL</span></h4>
+        <h4>Total Consumtion: <span class="text-primary">{{ data.total_consumption }} KL</span></h4>
+        (Calculated from date of occupancy)
     </div>
 </div>
 {% endif %}
