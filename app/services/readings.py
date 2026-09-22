@@ -5,36 +5,48 @@ from sqlalchemy.orm import Session
 from app.models import MeterReading, Meter, Tenant
 
 def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[str, Any]:
-    prev_reading = (
-        db.query(MeterReading)
-        .filter(
-            MeterReading.meter_id == reading.meter_id,
-            MeterReading.capture_date < reading.capture_date
+    # If the reading itself is a reset marker, it starts a new cycle (no prior baseline for this tenant)
+    if reading.is_reset:
+        reset_reading = None
+    else:
+        # Find the most recent reset marker before this reading
+        reset_reading = (
+            db.query(MeterReading)
+            .filter(
+                MeterReading.meter_id == reading.meter_id,
+                MeterReading.capture_date < reading.capture_date,
+                MeterReading.is_reset == True
+            )
+            .order_by(MeterReading.capture_date.desc())
+            .first()
         )
-        .order_by(MeterReading.capture_date.desc())
-        .first()
-    )
+        
+        # If no explicit reset marker exists, fall back to the very first reading for this meter
+        if not reset_reading:
+            reset_reading = (
+                db.query(MeterReading)
+                .filter(
+                    MeterReading.meter_id == reading.meter_id,
+                    MeterReading.capture_date < reading.capture_date
+                )
+                .order_by(MeterReading.capture_date.asc())
+                .first()
+            )
 
-    if not prev_reading:
-        return {
-            "id": reading.id,
-            "meter_number": reading.meter.meter_number,
-            "tenant_code": reading.meter.tenant.code,
-            "area": reading.meter.area,
-            "current_date": reading.capture_date,
-            "current_reading": reading.reading_value,
-            "previous_date": None,
-            "previous_reading": None,
-            "consumption": None,
-            "days": None,
-            "avg_per_day": None,
-            "image_path": reading.image_path,
-            "review": reading.review
-        }
-
-    consumption = round(reading.reading_value - prev_reading.reading_value, 2)
-    days = (reading.capture_date - prev_reading.capture_date).days
-    avg_per_day = round(consumption / days, 3) if days > 0 else 0.0
+    if not reset_reading:
+        # Requirement 1: If no previous reading exists (or it's the reset marker), use current reading
+        consumption = round(reading.reading_value, 2)
+        days = None
+        avg_per_day = None
+        prev_date = None
+        prev_val = None
+    else:
+        # Requirement 3: Total consumption is calculated from the reset marker baseline
+        consumption = round(reading.reading_value - reset_reading.reading_value, 2)
+        days = (reading.capture_date - reset_reading.capture_date).days
+        avg_per_day = round(consumption / days, 3) if days and days > 0 else 0.0
+        prev_date = reset_reading.capture_date
+        prev_val = reset_reading.reading_value
 
     return {
         "id": reading.id,
@@ -43,13 +55,14 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
         "area": reading.meter.area,
         "current_date": reading.capture_date,
         "current_reading": reading.reading_value,
-        "previous_date": prev_reading.capture_date,
-        "previous_reading": prev_reading.reading_value,
+        "previous_date": prev_date,
+        "previous_reading": prev_val,
         "consumption": consumption,
         "days": days,
         "avg_per_day": avg_per_day,
+        "is_reset": reading.is_reset,
         "image_path": reading.image_path,
-        "review": reading.review
+        "review": getattr(reading, "review", None)
     }
 
 def get_latest_meter_stat(db: Session, meter_id: int) -> Optional[Dict[str, Any]]:
@@ -97,7 +110,6 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
     }
 
 def delete_meter_reading(db: Session, reading_id: int) -> bool:
-    """Deletes a reading from the DB and removes its image file if present."""
     reading = db.query(MeterReading).filter(MeterReading.id == reading_id).first()
     if not reading:
         return False
