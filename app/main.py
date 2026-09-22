@@ -107,11 +107,19 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 @app.get("/capture", response_class=HTMLResponse)
 def capture_form(request: Request, db: Session = Depends(get_db)):
     meters = db.query(Meter).all()
-    today = datetime.now().strftime("%Y-%m-%d")
+    
+    # Retain the last captured reading date; default to today if no records exist
+    latest_reading = db.query(MeterReading).order_by(MeterReading.id.desc()).first()
+    default_date = (
+        latest_reading.capture_date.strftime("%Y-%m-%d")
+        if latest_reading
+        else datetime.now().strftime("%Y-%m-%d")
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="capture.html",
-        context={"meters": meters, "today": today, "ROUTE_PATH": ROUTE_PATH}
+        context={"meters": meters, "today": default_date, "ROUTE_PATH": ROUTE_PATH}
     )
 
 
@@ -150,7 +158,7 @@ async def save_reading(
             name="capture.html",
             context={
                 "meters": meters,
-                "today": datetime.now().strftime("%Y-%m-%d"),
+                "today": capture_date,
                 "error_message": error_msg,
                 "selected_meter_id": meter_id,
                 "capture_date": capture_date,
