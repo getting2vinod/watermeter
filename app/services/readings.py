@@ -6,7 +6,7 @@ from app.models import MeterReading, Meter, Tenant
 
 
 def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[str, Any]:
-    # 1. If the current reading is marked as a reset, consumption for this entry is 0.0 (starts baseline)
+    # 1. If current reading is marked as a reset, it serves as the baseline entry (0 consumption)
     if reading.is_reset:
         return {
             "id": reading.id,
@@ -17,7 +17,7 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
             "current_reading": reading.reading_value,
             "previous_date": None,
             "previous_reading": None,
-            "initial_reading": reading.reading_value,  # Acts as starting baseline
+            "baseline_reading": reading.reading_value,
             "consumption": 0.0,
             "days": None,
             "avg_per_day": None,
@@ -26,7 +26,7 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
             "review": getattr(reading, "review", None)
         }
 
-    # 2. Look for the most recent reading marked with is_reset = True prior to this reading
+    # 2. Search for the most recent reading marked with is_reset = True prior to this reading
     reset_reading = (
         db.query(MeterReading)
         .filter(
@@ -39,21 +39,20 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
     )
 
     if reset_reading:
-        # If an is_reset flag is found: baseline is reset_reading.reading_value
-        initial_reading = reset_reading.reading_value
-        consumption = round(max(0.0, reading.reading_value - initial_reading), 2)
-        days = (reading.capture_date - reset_reading.capture_date).days
-        avg_per_day = round(consumption / days, 3) if days and days > 0 else 0.0
+        baseline = reset_reading.reading_value
         prev_date = reset_reading.capture_date
         prev_val = reset_reading.reading_value
+        consumption = round(max(0.0, reading.reading_value - baseline), 2)
+        days = (reading.capture_date - reset_reading.capture_date).days
+        avg_per_day = round(consumption / days, 3) if days and days > 0 else 0.0
     else:
-        # If NO is_reset flag exists: baseline is 0.0 and consumption = current_reading
-        initial_reading = 0.0
+        # No is_reset flag: baseline is 0.0 and consumption is the current reading value
+        baseline = 0.0
+        prev_date = None
+        prev_val = 0.0
         consumption = round(reading.reading_value, 2)
         days = None
         avg_per_day = None
-        prev_date = None
-        prev_val = None
 
     return {
         "id": reading.id,
@@ -64,7 +63,7 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
         "current_reading": reading.reading_value,
         "previous_date": prev_date,
         "previous_reading": prev_val,
-        "initial_reading": initial_reading,
+        "baseline_reading": baseline,
         "consumption": consumption,
         "days": days,
         "avg_per_day": avg_per_day,
@@ -93,19 +92,16 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
 
     meter_stats = []
     total_consumption = 0.0
-    total_initial_reading = 0.0
-    total_current_reading = 0.0
+    total_baseline = 0.0
+    total_current = 0.0
 
     for meter in tenant.meters:
         stat = get_latest_meter_stat(db, meter.id)
         if stat:
             meter_stats.append(stat)
-            if stat.get("consumption") is not None:
-                total_consumption += stat["consumption"]
-            if stat.get("initial_reading") is not None:
-                total_initial_reading += stat["initial_reading"]
-            if stat.get("current_reading") is not None:
-                total_current_reading += stat["current_reading"]
+            total_consumption += stat.get("consumption", 0.0) or 0.0
+            total_baseline += stat.get("baseline_reading", 0.0) or 0.0
+            total_current += stat.get("current_reading", 0.0) or 0.0
         else:
             meter_stats.append({
                 "meter_number": meter.meter_number,
@@ -114,7 +110,7 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
                 "current_reading": None,
                 "previous_date": None,
                 "previous_reading": None,
-                "initial_reading": 0.0,
+                "baseline_reading": 0.0,
                 "consumption": 0.0,
                 "days": None,
                 "is_reset": False
@@ -123,8 +119,8 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
     return {
         "tenant": tenant,
         "meter_stats": meter_stats,
-        "total_initial_reading": round(total_initial_reading, 2),
-        "total_current_reading": round(total_current_reading, 2),
+        "total_baseline": round(total_baseline, 2),
+        "total_current": round(total_current, 2),
         "total_consumption": round(total_consumption, 2),
         "generated_date": date.today()
     }

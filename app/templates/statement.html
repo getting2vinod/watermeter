@@ -25,11 +25,9 @@
 <div class="card shadow-sm bg-white">
     <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
         <div>
-            <h3 class="mb-0">{{ data.tenant.name }} ({{ data.tenant.code }})</h3>
-            <div class="text-muted small mt-1">
-                <strong>Initial Baseline Reading:</strong> {{ data.total_initial_reading }} KL
-                <span class="mx-2">|</span>
-                <strong>Latest Reading:</strong> {{ data.total_current_reading }} KL
+            <h3 class="mb-1">{{ data.tenant.name }} ({{ data.tenant.code }})</h3>
+            <div class="text-muted fs-6">
+                <strong>Baseline Reading:</strong> {{ data.total_baseline }} KL
             </div>
         </div>
         <div class="text-end">
@@ -37,7 +35,7 @@
                 Total Consumption: {{ data.total_consumption }} KL
             </span>
             <div class="text-muted small mt-1">
-                ({{ data.total_current_reading }} KL - {{ data.total_initial_reading }} KL)
+                Current ({{ data.total_current }} KL) - Baseline ({{ data.total_baseline }} KL)
             </div>
         </div>
     </div>
@@ -48,8 +46,9 @@
                     <tr>
                         <th>Meter</th>
                         <th>Area</th>
-                        <th>Capture Date</th>
-                        <th>Initial Reading (Baseline)</th>
+                        <th>Prev. Date</th>
+                        <th>Prev. Reading</th>
+                        <th>Current Date</th>
                         <th>Current Reading</th>
                         <th>Consumption</th>
                     </tr>
@@ -59,15 +58,9 @@
                     <tr>
                         <td><strong>{{ stat.meter_number }}</strong></td>
                         <td>{{ stat.area }}</td>
-                        <td>{{ stat.current_date or 'No Readings' }}</td>
-                        <td>
-                            {{ stat.initial_reading }} KL
-                            {% if stat.previous_date %}
-                            <small class="text-muted d-block">(Reset on {{ stat.previous_date }})</small>
-                            {% else %}
-                            <small class="text-muted d-block">(No reset flag - Base 0.0)</small>
-                            {% endif %}
-                        </td>
+                        <td>{{ stat.previous_date or '-' }}</td>
+                        <td>{{ stat.previous_reading if stat.previous_reading is not none else '0.0' }} KL</td>
+                        <td>{{ stat.current_date or '-' }}</td>
                         <td>{{ stat.current_reading if stat.current_reading is not none else '-' }} KL</td>
                         <td>
                             <strong>{{ stat.consumption }} KL</strong>
