@@ -2,7 +2,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, Form, UploadFile, File, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,7 +18,44 @@ import re
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Water Meter Management System")
+def seed_initial_data():
+    db = next(get_db())
+    if db.query(Tenant).count() == 0:
+        tenants_data = [
+            ("A1", "Tenant A1"), ("B1", "Tenant B1"),
+            ("A2", "Tenant A2"), ("B2", "Tenant B2"),
+            ("A3", "Tenant A3"), ("B3", "Tenant B3")
+        ]
+        meters_data = [
+            ("A1", "A11", "Wash"), ("A1", "A12", "Kitchen"),
+            ("B1", "B11", "Wash"), ("B1", "B12", "Kitchen"),
+            ("A2", "A21", "Kitchen"), ("A2", "A22", "Wash"),
+            ("B2", "B21", "Kitchen"), ("B2", "B22", "Wash"),
+            ("A3", "A31", "Wash"), ("A3", "A32", "Kitchen"),
+            ("B3", "B31", "Wash"), ("B3", "B32", "Kitchen")
+        ]
+        
+        tenant_map = {}
+        for code, name in tenants_data:
+            t = Tenant(code=code, name=name)
+            db.add(t)
+            db.commit()
+            db.refresh(t)
+            tenant_map[code] = t.id
+
+        for t_code, meter_num, area in meters_data:
+            m = Meter(tenant_id=tenant_map[t_code], meter_number=meter_num, area=area)
+            db.add(m)
+        db.commit()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Executed on application startup
+    seed_initial_data()
+    yield
+    # Executed on application shutdown (if cleanup is needed later)
+
+app = FastAPI(title="Water Meter Management System", lifespan=lifespan)
 
 class RemoveDoubleSlashesMiddleware:
     def __init__(self, app):
@@ -50,36 +87,7 @@ app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploa
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 
-@app.on_event("startup")
-def seed_initial_data():
-    db = next(get_db())
-    if db.query(Tenant).count() == 0:
-        tenants_data = [
-            ("A1", "Tenant A1"), ("B1", "Tenant B1"),
-            ("A2", "Tenant A2"), ("B2", "Tenant B2"),
-            ("A3", "Tenant A3"), ("B3", "Tenant B3")
-        ]
-        meters_data = [
-            ("A1", "A11", "Wash"), ("A1", "A12", "Kitchen"),
-            ("B1", "B11", "Wash"), ("B1", "B12", "Kitchen"),
-            ("A2", "A21", "Kitchen"), ("A2", "A22", "Wash"),
-            ("B2", "B21", "Kitchen"), ("B2", "B22", "Wash"),
-            ("A3", "A31", "Wash"), ("A3", "A32", "Kitchen"),
-            ("B3", "B31", "Wash"), ("B3", "B32", "Kitchen")
-        ]
-        
-        tenant_map = {}
-        for code, name in tenants_data:
-            t = Tenant(code=code, name=name)
-            db.add(t)
-            db.commit()
-            db.refresh(t)
-            tenant_map[code] = t.id
 
-        for t_code, meter_num, area in meters_data:
-            m = Meter(tenant_id=tenant_map[t_code], meter_number=meter_num, area=area)
-            db.add(m)
-        db.commit()
 
 
 @app.get("/", response_class=HTMLResponse)
