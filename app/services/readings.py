@@ -33,7 +33,7 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
     prev_date = prev_reading.capture_date if prev_reading else None
     prev_val = prev_reading.reading_value if prev_reading else None
 
-    # 3. Calculate interval consumption from immediately preceding reading
+    # 3. Calculate interval consumption and days from immediately preceding reading
     if reading.is_reset:
         consumption = 0.0
         days = None
@@ -88,9 +88,9 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
 
     meter_stats = []
     total_consumption = 0.0
+    total_interval_consumption = 0.0
     total_baseline = 0.0
     total_current = 0.0
-    total_avg_daily = 0.0
 
     last_dates = []
     prev_dates = []
@@ -125,7 +125,7 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
             total_baseline += stat.get("baseline_reading", 0.0) or 0.0
             total_current += stat.get("current_reading", 0.0) or 0.0
             total_consumption += stat.get("net_consumption", 0.0) or 0.0
-            total_avg_daily += stat.get("avg_per_day", 0.0) or 0.0
+            total_interval_consumption += stat.get("consumption", 0.0) or 0.0
             
             if stat.get("current_date"):
                 last_dates.append(stat["current_date"])
@@ -156,6 +156,17 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
     last_reading_date = max(last_dates) if last_dates else None
     previous_reading_date = max(prev_dates) if prev_dates else None
 
+    # Number of days between previous reading date and current (last) reading date
+    if last_reading_date and previous_reading_date:
+        total_days = (last_reading_date - previous_reading_date).days
+    else:
+        total_days = None
+
+    if total_days and total_days > 0:
+        total_avg_daily = round(total_interval_consumption / total_days, 2)
+    else:
+        total_avg_daily = 0.0
+
     last_reading_date_fmt = last_reading_date.strftime("%d-%b-%Y") if last_reading_date else "-"
     previous_reading_date_fmt = previous_reading_date.strftime("%d-%b-%Y") if previous_reading_date else "-"
 
@@ -169,6 +180,7 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
         "total_current": round(total_current, 2),
         "total_consumption": round(total_consumption, 2),
         "total_avg_daily": round(total_avg_daily, 2),
+        "total_days": total_days,
         "last_reading_date": last_reading_date,
         "previous_reading_date": previous_reading_date,
         "last_reading_date_fmt": last_reading_date_fmt,

@@ -165,15 +165,17 @@
                     <!-- Totals -->
                     <tr class="statement-total-row">
                         <td class="statement-label">
-                            Total Consumption <span class="formula-text">({{ data.total_formula }})</span> :
+                            Total Usage <span class="formula-text">({{ data.total_formula }})</span> :
                         </td>
                         <td class="statement-value text-primary">{{ data.total_consumption }} KL</td>
                         <td class="statement-date text-primary">{{ data.last_reading_date_fmt }}</td>
                     </tr>
                     <tr class="statement-total-row">
-                        <td class="statement-label">Total Avg Daily Consumption :</td>
+                        <td class="statement-label">Avg Daily Usage from last reading:</td>
                         <td class="statement-value text-primary">{{ data.total_avg_daily }} KL/day</td>
-                        <td class="statement-date text-primary">&nbsp;</td>
+                        <td class="statement-date text-primary">
+                            {% if data.total_days is not none %}{{ data.total_days }} days{% else %}-{% endif %}
+                        </td>
                     </tr>
                 </tbody>
             </table>
