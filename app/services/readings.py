@@ -37,18 +37,16 @@ def calculate_meter_reading_stats(db: Session, reading: MeterReading) -> Dict[st
     if reading.is_reset:
         consumption = 0.0
         days = None
-        avg_per_day = None
+        avg_per_day = 0.0
     elif prev_reading:
         consumption = round(max(0.0, reading.reading_value - prev_reading.reading_value), 2)
         days = (reading.capture_date - prev_reading.capture_date).days
         avg_per_day = round(consumption / days, 3) if days and days > 0 else 0.0
     else:
-        # No previous reading captured: consumption equals the current reading
         consumption = round(reading.reading_value, 2)
         days = None
-        avg_per_day = None
+        avg_per_day = 0.0
 
-    # Net total consumption calculated relative to the reset baseline
     net_consumption = round(max(0.0, reading.reading_value - baseline), 2)
 
     return {
@@ -92,14 +90,47 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
     total_consumption = 0.0
     total_baseline = 0.0
     total_current = 0.0
+    total_avg_daily = 0.0
 
-    for meter in tenant.meters:
+    last_dates = []
+    prev_dates = []
+    cons_labels = []
+
+    initial_reading_label = "a"
+    letter_idx = 1  # 'a' is reserved for Initial Reading
+
+    for idx, meter in enumerate(tenant.meters):
         stat = get_latest_meter_stat(db, meter.id)
+        
+        curr_letter = chr(97 + letter_idx)       # b, e, h...
+        prev_letter = chr(97 + letter_idx + 1)   # c, f, i...
+        cons_letter = chr(97 + letter_idx + 2)   # d, g, j...
+        letter_idx += 3
+
+        calc_expr = f"{curr_letter} - {prev_letter}"
+        cons_labels.append(cons_letter)
+
         if stat:
+            current_date_fmt = stat["current_date"].strftime("%d-%b-%Y") if stat.get("current_date") else "-"
+            previous_date_fmt = stat["previous_date"].strftime("%d-%b-%Y") if stat.get("previous_date") else "-"
+
+            stat["curr_letter"] = curr_letter
+            stat["prev_letter"] = prev_letter
+            stat["cons_letter"] = cons_letter
+            stat["calc_expr"] = calc_expr
+            stat["current_date_fmt"] = current_date_fmt
+            stat["previous_date_fmt"] = previous_date_fmt
+
             meter_stats.append(stat)
             total_baseline += stat.get("baseline_reading", 0.0) or 0.0
             total_current += stat.get("current_reading", 0.0) or 0.0
             total_consumption += stat.get("net_consumption", 0.0) or 0.0
+            total_avg_daily += stat.get("avg_per_day", 0.0) or 0.0
+            
+            if stat.get("current_date"):
+                last_dates.append(stat["current_date"])
+            if stat.get("previous_date"):
+                prev_dates.append(stat["previous_date"])
         else:
             meter_stats.append({
                 "meter_number": meter.meter_number,
@@ -112,15 +143,37 @@ def get_tenant_statement_data(db: Session, tenant_id: int) -> Dict[str, Any]:
                 "consumption": 0.0,
                 "net_consumption": 0.0,
                 "days": None,
-                "is_reset": False
+                "avg_per_day": 0.0,
+                "is_reset": False,
+                "curr_letter": curr_letter,
+                "prev_letter": prev_letter,
+                "cons_letter": cons_letter,
+                "calc_expr": calc_expr,
+                "current_date_fmt": "-",
+                "previous_date_fmt": "-"
             })
+
+    last_reading_date = max(last_dates) if last_dates else None
+    previous_reading_date = max(prev_dates) if prev_dates else None
+
+    last_reading_date_fmt = last_reading_date.strftime("%d-%b-%Y") if last_reading_date else "-"
+    previous_reading_date_fmt = previous_reading_date.strftime("%d-%b-%Y") if previous_reading_date else "-"
+
+    total_formula = f"{' + '.join(cons_labels)} - {initial_reading_label}" if cons_labels else ""
 
     return {
         "tenant": tenant,
         "meter_stats": meter_stats,
+        "initial_reading_label": initial_reading_label,
         "total_baseline": round(total_baseline, 2),
         "total_current": round(total_current, 2),
         "total_consumption": round(total_consumption, 2),
+        "total_avg_daily": round(total_avg_daily, 2),
+        "last_reading_date": last_reading_date,
+        "previous_reading_date": previous_reading_date,
+        "last_reading_date_fmt": last_reading_date_fmt,
+        "previous_reading_date_fmt": previous_reading_date_fmt,
+        "total_formula": total_formula,
         "generated_date": date.today()
     }
 
